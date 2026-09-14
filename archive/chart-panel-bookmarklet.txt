@@ -1,0 +1,346 @@
+CATO CHART PANEL - BOOKMARKLET
+==============================
+
+Lists every Datawrapper chart on a cato.org page. Each one gets four buttons,
+all the same weight - there is no way to know which one someone came for:
+
+  16:9 image           downloads <id>-16x9.png
+  16:9 plain           downloads <id>-16x9-plain.png, no title/notes/sources
+  Copy ID              copies the five-character chart ID
+  Open chart resizer   opens the resizer with that chart already loaded
+
+The images are the files Datawrapper generated at publish time. They download
+the moment you click - wherever your browser is set to put downloads.
+
+A "Show plain version" link under each preview swaps it between the two, so
+you can see what the plain export actually leaves out before saving it. The
+resizer follows that choice: if the plain version is on screen when you click
+"Open chart resizer", the resizer opens with the plain version already loaded
+and its own "Show plain version" toggle flipped, so what you see in the panel
+is what you get in the tool.
+
+BEFORE YOU USE IT - SET THE RESIZER URL
+---------------------------------------
+The first line of the source sets where the resizer lives:
+
+  var TOOL='http://127.0.0.1:5500/v2-bookmarklet.html';
+
+That is a localhost address, so "Open chart resizer" only works while you have
+the file being served locally. Change it to the real address once the resizer
+is hosted, and rebuild the paste line (see the bottom of this file).
+
+HOW THE DOWNLOAD WORKS
+----------------------
+A download attribute is ignored on a cross-origin link, so the bytes have to
+be local before anything can be saved. Two routes, tried in order:
+
+  1. fetch - hands back the published file byte for byte, exactly as
+     Datawrapper optimised it. Needs connect-src to allow dwcdn, which cannot
+     be verified from outside cato.org.
+  2. <img> into a canvas - only needs img-src, which the page already grants
+     dwcdn for its print fallback, so it works wherever the preview works.
+     Re-encoding inflates the PNG by about a third (160KB becomes 218KB on a
+     typical chart) because the canvas encoder does not optimise the way
+     Datawrapper does. Same pixels, bigger file.
+
+If both fail the button opens the image in a tab instead of failing silently.
+
+Either route keeps the chart ID in the filename. Right-click and Save Image As
+would not - that names every chart on the page website.png, so three charts
+become website.png, website(1).png and website(2).png.
+
+Saving several charts in a row may make Chrome ask whether to allow multiple
+downloads. That is browser behaviour for any scripted download; click Allow
+once for the site.
+
+THE PREVIEW IS THE CHECK
+------------------------
+Each chart's preview image is website.png itself - the exact file the first
+button saves. So the preview doubles as the test: if it renders, the export
+exists and the buttons work. If it fails to load, the chart was published
+before the website export presets were configured. The panel then hides the
+broken image and its toggle, turns the three export-dependent buttons neutral
+and inert, and shows a single line - "Republish this chart to generate its
+16:9 image" - linking to that chart's Publish screen, with an arrow marking
+that the link leaves the page. Copy ID keeps working, because the ID exists
+whether or not the export does.
+
+Once a preview has loaded successfully that verdict is settled, so a later
+failure is treated as a failed swap - it reverts to the full image rather than
+re-running the missing-export path and counting the chart twice.
+
+When any chart is affected, the count appears once under the header - "2 of 3
+charts do not have a 16:9 image yet. Republish in Datawrapper using the links
+below to generate images." - rather than repeating the explanation on every
+card. It points at the per-card links rather than carrying its own.
+
+Both presets are written by the same publish, so a missing website.png means
+website-plain.png is missing too - one signal covers every export button.
+
+TO INSTALL
+----------
+Right-click your bookmarks bar > Add page / Add bookmark, give it a name, and
+paste the line below as the URL. (Chrome may strip the leading "javascript:"
+when pasting - if so, type those characters back in by hand.)
+
+Escape closes the panel, as does the x.
+
+READY TO PASTE
+--------------
+javascript:(function()%7B%0A%20%20%2F*%20Where%20the%20chart%20resizer%20lives.%20Change%20this%20one%20line%20when%20it%20moves%20off%0A%20%20%20%20%20localhost%20onto%20its%20cato.org%20subdomain.%20*%2F%0A%20%20var%20TOOL%3D'http%3A%2F%2F127.0.0.1%3A5500%2Fv2-bookmarklet.html'%3B%0A%0A%20%20var%20CDN%3D'https%3A%2F%2Fdatawrapper.dwcdn.net%2F'%3B%0A%20%20var%20old%3Ddocument.getElementById('dw-chart-panel')%3B%0A%20%20if(old)%7Bold.remove()%3B%7D%0A%0A%20%20var%20seen%3D%7B%7D%2Ccharts%3D%5B%5D%3B%0A%20%20function%20add(id%2Ctitle)%7B%0A%20%20%20%20if(!id%7C%7Cseen%5Bid%5D)return%3B%0A%20%20%20%20seen%5Bid%5D%3D1%3B%0A%20%20%20%20charts.push(%7Bid%3Aid%2Ctitle%3A(title%7C%7C'Untitled%20chart').trim()%7D)%3B%0A%20%20%7D%0A%20%20%5B%5D.forEach.call(document.querySelectorAll('.embed-print-fallback__image')%2Cfunction(img)%7B%0A%20%20%20%20var%20m%3Dimg.src.match(%2Fdatawrapper%5C.dwcdn%5C.net%5C%2F(%5BA-Za-z0-9%5D%7B5%7D)%5C%2F%2F)%3B%0A%20%20%20%20if(m)add(m%5B1%5D%2Cimg.alt)%3B%0A%20%20%7D)%3B%0A%20%20%5B%5D.forEach.call(document.querySelectorAll('iframe%5Bsrc*%3D%22datawrapper.dwcdn.net%22%5D')%2Cfunction(f)%7B%0A%20%20%20%20var%20m%3Df.src.match(%2Fdatawrapper%5C.dwcdn%5C.net%5C%2F(%5BA-Za-z0-9%5D%7B5%7D)%5C%2F%2F)%3B%0A%20%20%20%20if(m)add(m%5B1%5D%2Cf.title)%3B%0A%20%20%7D)%3B%0A%20%20%2F%2F%20Web%20component%20embeds%20expose%20the%20chart%20ID%20in%20their%20loader%20script%20URL.%0A%20%20%5B%5D.forEach.call(document.querySelectorAll('script%5Bsrc*%3D%22datawrapper.dwcdn.net%22%5D')%2Cfunction(s)%7B%0A%20%20%20%20var%20m%3Ds.src.match(%2Fdatawrapper%5C.dwcdn%5C.net%5C%2F(%5BA-Za-z0-9%5D%7B5%7D)%5C%2Fembed%5C.js(%3F%3A%5B%3F%23%5D%7C%24)%2F)%3B%0A%20%20%20%20if(m)add(m%5B1%5D%2Cs.title)%3B%0A%20%20%7D)%3B%0A%20%20if(!charts.length)%7Balert('No%20Datawrapper%20charts%20found%20on%20this%20page.')%3Breturn%3B%7D%0A%0A%20%20var%20STROKE%3D'%23d4d4d8'%3B%0A%20%20var%20RULE%3D'%23e4e4e7'%3B%0A%20%20%2F*%20One%20weight%20for%20all%20four%3A%20there%20is%20no%20way%20to%20know%20whether%20someone%20came%0A%20%20%20%20%20for%20the%20full%20image%2C%20the%20plain%20one%2C%20the%20ID%20or%20the%20resizer%2C%20so%20promoting%0A%20%20%20%20%20any%20of%20them%20just%20guesses%20wrong%20three%20times%20out%20of%20four.%20*%2F%0A%20%20var%20BTN%3D'cursor%3Apointer%3Bborder%3A1px%20solid%20'%2BSTROKE%2B'%3Bbackground%3A%23fff%3Bcolor%3A%2318181b%3Bborder-radius%3A4px%3Bpadding%3A7px%2011px%3Bfont-size%3A13px%3Bfont-weight%3A600%3Bfont-family%3Ainherit%3Bline-height%3A1.2'%3B%0A%20%20var%20BTN_OFF%3D'cursor%3Anot-allowed%3Bborder%3A1px%20solid%20'%2BRULE%2B'%3Bbackground%3A%23fff%3Bcolor%3A%23a1a1aa%3Bborder-radius%3A4px%3Bpadding%3A7px%2011px%3Bfont-size%3A13px%3Bfont-weight%3A600%3Bfont-family%3Ainherit%3Bline-height%3A1.2'%3B%0A%0A%20%20function%20el(tag%2Ccss%2Ctext)%7B%0A%20%20%20%20var%20n%3Ddocument.createElement(tag)%3B%0A%20%20%20%20if(css)n.style.cssText%3Dcss%3B%0A%20%20%20%20if(text!%3Dnull)n.textContent%3Dtext%3B%0A%20%20%20%20return%20n%3B%0A%20%20%7D%0A%0A%20%20var%20p%3Del('div'%2C'position%3Afixed%3Btop%3A0%3Bright%3A20px%3Bz-index%3A2147483647%3Bwidth%3A380px%3Bmax-height%3A100vh%3Boverflow-y%3Aauto%3Bbox-sizing%3Aborder-box%3Bbackground%3A%23fff%3Bcolor%3A%2318181b%3Bborder%3A1px%20solid%20'%2BSTROKE%2B'%3Bborder-top%3A0%3Bborder-radius%3A0%200%208px%208px%3Bpadding%3A0%2020px%2020px%3Bfont-family%3A-apple-system%2CBlinkMacSystemFont%2CArial%2Csans-serif%3Bfont-size%3A14px%3Bbox-shadow%3A0%204px%2016px%20rgba(0%2C0%2C0%2C.2)')%3B%0A%20%20p.id%3D'dw-chart-panel'%3B%0A%0A%20%20%2F*%20Sticky%20so%20the%20close%20button%20stays%20reachable%20on%20pages%20with%20many%20charts.%20*%2F%0A%20%20var%20h%3Del('div'%2C'position%3Asticky%3Btop%3A0%3Bbackground%3A%23fff%3Bpadding%3A20px%200%2012px%3Bdisplay%3Aflex%3Balign-items%3Acenter%3Bjustify-content%3Aspace-between')%3B%0A%20%20h.appendChild(el('div'%2C'font-size%3A16px%3Bfont-weight%3A700'%2Ccharts.length%2B'%20chart'%2B(charts.length%3D%3D%3D1%3F''%3A's')%2B'%20on%20this%20page'))%3B%0A%20%20var%20x%3Del('button'%2C'border%3A0%3Bbackground%3Atransparent%3Bcolor%3A%2371717a%3Bfont-size%3A22px%3Bline-height%3A1%3Bcursor%3Apointer%3Bpadding%3A0'%2C'%C3%97')%3B%0A%20%20x.setAttribute('aria-label'%2C'Close')%3B%0A%20%20x.onclick%3Dfunction()%7Bp.remove()%3B%7D%3B%0A%20%20h.appendChild(x)%3B%0A%20%20p.appendChild(h)%3B%0A%0A%20%20p.appendChild(el('div'%2C'font-size%3A12px%3Bcolor%3A%2371717a%3Bmargin-bottom%3A14px'%2C'Images%20download%20as%20soon%20as%20you%20click.'))%3B%0A%0A%20%20%2F*%20Said%20once%20here%20rather%20than%20repeated%20on%20every%20affected%20card.%20Counts%20up%20as%0A%20%20%20%20%20the%20previews%20fail%2C%20so%20it%20reflects%20the%20whole%20page%20in%20one%20sentence.%20*%2F%0A%20%20var%20missing%3D0%3B%0A%20%20var%20summary%3Del('div'%2C'display%3Anone%3Bfont-size%3A12px%3Bline-height%3A1.5%3Bcolor%3A%23856404%3Bbackground%3A%23fefce8%3Bborder-left%3A4px%20solid%20%23facc15%3Bpadding%3A9px%2011px%3Bmargin-bottom%3A16px')%3B%0A%20%20p.appendChild(summary)%3B%0A%20%20function%20countMissing()%7B%0A%20%20%20%20missing%2B%2B%3B%0A%20%20%20%20summary.textContent%3D(charts.length%3D%3D%3D1%0A%20%20%20%20%20%20%3F%20'This%20chart%20does%20not%20have%20a%2016%3A9%20image%20yet.'%0A%20%20%20%20%20%20%3A%20missing%2B'%20of%20'%2Bcharts.length%2B'%20charts%20'%2B(missing%3D%3D%3D1%3F'does'%3A'do')%2B'%20not%20have%20a%2016%3A9%20image%20yet.')%0A%20%20%20%20%20%20%2B'%20Republish%20in%20Datawrapper%20using%20the%20'%2B(missing%3D%3D%3D1%3F'link'%3A'links')%2B'%20below%20to%20generate%20images.'%3B%0A%20%20%20%20summary.style.display%3D'block'%3B%0A%20%20%7D%0A%0A%20%20charts.forEach(function(c%2Ci)%7B%0A%20%20%20%20var%20item%3Del('div')%3B%0A%20%20%20%20%2F*%20Figure%20number%20and%20title%20share%20a%20line.%20On%20its%20own%20the%20number%20claimed%20a%0A%20%20%20%20%20%20%20full%20row%20for%20two%20words%20and%20left%20the%20rest%20of%20it%20empty%2C%20which%20is%20a%20lot%20of%0A%20%20%20%20%20%20%20dead%20space%20in%20a%20380px%20panel.%20*%2F%0A%20%20%20%20var%20head%3Del('div'%2C'line-height%3A1.4%3Bmargin-bottom%3A10px')%3B%0A%20%20%20%20head.appendChild(el('strong'%2Cnull%2C'Figure%20'%2B(i%2B1)%2B'%3A%20'))%3B%0A%20%20%20%20head.appendChild(document.createTextNode(c.title))%3B%0A%20%20%20%20item.appendChild(head)%3B%0A%0A%20%20%20%20%2F*%20The%20preview%20IS%20website.png%2C%20so%20it%20doubles%20as%20the%20availability%20check%3A%0A%20%20%20%20%20%20%20renders%20means%20the%20export%20exists%2C%20fails%20means%20the%20chart%20predates%20the%0A%20%20%20%20%20%20%20export%20presets.%20It%20is%20an%20%3Cimg%3E%2C%20so%20it%20uses%20the%20same%20img-src%20the%20page%0A%20%20%20%20%20%20%20already%20grants%20the%20print%20fallback%20rather%20than%20depending%20on%20connect-src.%20*%2F%0A%20%20%20%20var%20im%3Del('img'%2C'width%3A100%25%3Bheight%3Aauto%3Bdisplay%3Ablock%3Bmargin%3A0%200%2010px%3Bborder%3A1px%20solid%20'%2BRULE)%3B%0A%20%20%20%20im.src%3DCDN%2Bc.id%2B'%2Fwebsite.png'%3B%0A%20%20%20%20im.alt%3D''%3B%0A%0A%20%20%20%20%2F*%20The%20plain%20export%20drops%20the%20title%2C%20notes%20and%20sources%2C%20which%20is%20hard%20to%0A%20%20%20%20%20%20%20picture%20from%20a%20button%20label.%20Swapping%20the%20preview%20answers%20it%20for%20one%0A%20%20%20%20%20%20%20request%2C%20and%20leaves%20downloading%20alone.%20*%2F%0A%20%20%20%20var%20showing%3D'full'%3B%0A%20%20%20%20var%20toggle%3Del('button'%2C'display%3Ablock%3Bmargin%3A0%200%2010px%3Bborder%3A0%3Bbackground%3Anone%3Bpadding%3A0%3Bfont%3Ainherit%3Bfont-size%3A12px%3Bcolor%3A%233043b4%3Btext-decoration%3Aunderline%3Btext-underline-offset%3A2px%3Bcursor%3Apointer'%2C'Show%20plain%20version')%3B%0A%20%20%20%20toggle.onclick%3Dfunction()%7B%0A%20%20%20%20%20%20showing%3Dshowing%3D%3D%3D'full'%3F'plain'%3A'full'%3B%0A%20%20%20%20%20%20toggle.textContent%3Dshowing%3D%3D%3D'full'%3F'Show%20plain%20version'%3A'Show%20full%20version'%3B%0A%20%20%20%20%20%20im.src%3DCDN%2Bc.id%2B'%2F'%2B(showing%3D%3D%3D'full'%3F'website.png'%3A'website-plain.png')%3B%0A%20%20%20%20%7D%3B%0A%0A%20%20%20%20var%20note%3Del('div'%2C'display%3Anone%3Bfont-size%3A12px%3Bline-height%3A1.5%3Bcolor%3A%23856404%3Bmargin-top%3A8px')%3B%0A%0A%20%20%20%20%2F*%20A%20download%20attribute%20is%20ignored%20on%20a%20cross-origin%20href%2C%20so%20the%20bytes%0A%20%20%20%20%20%20%20have%20to%20be%20local%20before%20anything%20can%20be%20saved.%20Two%20ways%20to%20get%20them%2C%0A%20%20%20%20%20%20%20tried%20in%20order%3A%0A%0A%20%20%20%20%20%20%20%20%201.%20fetch%20-%20returns%20the%20published%20file%20byte%20for%20byte%2C%20exactly%20as%0A%20%20%20%20%20%20%20%20%20%20%20%20Datawrapper%20optimised%20it.%20Needs%20connect-src%20to%20allow%20dwcdn%2C%20which%0A%20%20%20%20%20%20%20%20%20%20%20%20cannot%20be%20verified%20from%20outside%20cato.org.%0A%20%20%20%20%20%20%20%20%202.%20%3Cimg%3E%20into%20a%20canvas%20-%20only%20needs%20img-src%2C%20which%20the%20page%20already%0A%20%20%20%20%20%20%20%20%20%20%20%20grants%20dwcdn%20for%20its%20print%20fallback%2C%20so%20this%20works%20wherever%20the%0A%20%20%20%20%20%20%20%20%20%20%20%20preview%20above%20works.%20The%20catch%20is%20that%20re-encoding%20inflates%20the%0A%20%20%20%20%20%20%20%20%20%20%20%20PNG%20by%20about%20a%20third%20(160KB%20becomes%20218KB%20on%20a%20typical%20chart)%2C%0A%20%20%20%20%20%20%20%20%20%20%20%20because%20the%20canvas%20encoder%20does%20not%20optimise%20the%20way%20Datawrapper%0A%20%20%20%20%20%20%20%20%20%20%20%20does.%20Same%20pixels%2C%20bigger%20file.%0A%0A%20%20%20%20%20%20%20Either%20way%20the%20download%20keeps%20the%20chart%20ID%20in%20its%20filename%2C%20which%0A%20%20%20%20%20%20%20right-click%20and%20Save%20Image%20As%20would%20not%20-%20that%20names%20every%20chart%0A%20%20%20%20%20%20%20website.png.%20*%2F%0A%20%20%20%20function%20saveImage(file%2Csuffix%2Cbtn)%7B%0A%20%20%20%20%20%20var%20url%3DCDN%2Bc.id%2B'%2F'%2Bfile%3B%0A%20%20%20%20%20%20var%20label%3Dbtn.textContent%3B%0A%20%20%20%20%20%20btn.textContent%3D'Saving...'%3B%0A%0A%20%20%20%20%20%20function%20give(blob)%7B%0A%20%20%20%20%20%20%20%20var%20href%3DURL.createObjectURL(blob)%3B%0A%20%20%20%20%20%20%20%20var%20a%3Ddocument.createElement('a')%3B%0A%20%20%20%20%20%20%20%20a.href%3Dhref%3B%0A%20%20%20%20%20%20%20%20a.download%3Dc.id%2Bsuffix%2B'.png'%3B%0A%20%20%20%20%20%20%20%20document.body.appendChild(a)%3B%0A%20%20%20%20%20%20%20%20a.click()%3B%0A%20%20%20%20%20%20%20%20a.remove()%3B%0A%20%20%20%20%20%20%20%20setTimeout(function()%7BURL.revokeObjectURL(href)%3B%7D%2C10000)%3B%0A%20%20%20%20%20%20%20%20btn.textContent%3D'Saved'%3B%0A%20%20%20%20%20%20%20%20setTimeout(function()%7Bbtn.textContent%3Dlabel%3B%7D%2C1400)%3B%0A%20%20%20%20%20%20%7D%0A%0A%20%20%20%20%20%20fetch(url).then(function(r)%7B%0A%20%20%20%20%20%20%20%20if(!r.ok)throw%200%3B%0A%20%20%20%20%20%20%20%20return%20r.blob()%3B%0A%20%20%20%20%20%20%7D).then(give).catch(function()%7B%0A%20%20%20%20%20%20%20%20var%20im2%3Dnew%20Image()%3B%0A%20%20%20%20%20%20%20%20im2.crossOrigin%3D'anonymous'%3B%0A%20%20%20%20%20%20%20%20im2.onload%3Dfunction()%7B%0A%20%20%20%20%20%20%20%20%20%20var%20cv%3Ddocument.createElement('canvas')%3B%0A%20%20%20%20%20%20%20%20%20%20cv.width%3Dim2.naturalWidth%3B%0A%20%20%20%20%20%20%20%20%20%20cv.height%3Dim2.naturalHeight%3B%0A%20%20%20%20%20%20%20%20%20%20cv.getContext('2d').drawImage(im2%2C0%2C0)%3B%0A%20%20%20%20%20%20%20%20%20%20cv.toBlob(give%2C'image%2Fpng')%3B%0A%20%20%20%20%20%20%20%20%7D%3B%0A%20%20%20%20%20%20%20%20%2F*%20Last%20resort%3A%20the%20file%20is%20still%20reachable%2C%20so%20hand%20it%20over%20the%20old%0A%20%20%20%20%20%20%20%20%20%20%20way%20rather%20than%20failing%20silently.%20*%2F%0A%20%20%20%20%20%20%20%20im2.onerror%3Dfunction()%7B%0A%20%20%20%20%20%20%20%20%20%20btn.textContent%3Dlabel%3B%0A%20%20%20%20%20%20%20%20%20%20window.open(url%2C'_blank'%2C'noopener')%3B%0A%20%20%20%20%20%20%20%20%7D%3B%0A%20%20%20%20%20%20%20%20im2.src%3Durl%3B%0A%20%20%20%20%20%20%7D)%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20var%20row%3Del('div'%2C'display%3Aflex%3Balign-items%3Acenter%3Bflex-wrap%3Awrap%3Bgap%3A6px')%3B%0A%0A%20%20%20%20var%20full%3Del('button'%2CBTN%2C'16%3A9%20image')%3B%0A%20%20%20%20full.title%3D'Download%20website.png'%3B%0A%20%20%20%20full.onclick%3Dfunction()%7BsaveImage('website.png'%2C'-16x9'%2Cfull)%3B%7D%3B%0A%0A%20%20%20%20var%20plain%3Del('button'%2CBTN%2C'16%3A9%20plain')%3B%0A%20%20%20%20plain.title%3D'Download%20website-plain.png%2C%20without%20title%2C%20notes%20or%20sources'%3B%0A%20%20%20%20plain.onclick%3Dfunction()%7BsaveImage('website-plain.png'%2C'-16x9-plain'%2Cplain)%3B%7D%3B%0A%0A%20%20%20%20var%20copy%3Del('button'%2CBTN%2C'Copy%20ID')%3B%0A%20%20%20%20copy.title%3D'Copy%20'%2Bc.id%2B'%20to%20the%20clipboard'%3B%0A%20%20%20%20copy.onclick%3Dfunction()%7B%0A%20%20%20%20%20%20navigator.clipboard.writeText(c.id).then(function()%7B%0A%20%20%20%20%20%20%20%20copy.textContent%3D'Copied%20'%2Bc.id%3B%0A%20%20%20%20%20%20%20%20setTimeout(function()%7Bcopy.textContent%3D'Copy%20ID'%3B%7D%2C1400)%3B%0A%20%20%20%20%20%20%7D)%3B%0A%20%20%20%20%7D%3B%0A%0A%20%20%20%20%2F*%20Built%20at%20click%20time%2C%20not%20bound%20up%20front%2C%20so%20it%20follows%20the%20preview%3A%0A%20%20%20%20%20%20%20whatever%20version%20is%20on%20screen%20is%20the%20one%20the%20resizer%20opens.%20The%20tool%0A%20%20%20%20%20%20%20reads%20%3Fplain%3D1%20and%20opens%20with%20the%20plain%20version%20already%20loaded.%20*%2F%0A%20%20%20%20var%20resize%3Del('button'%2CBTN%2C'Open%20chart%20resizer')%3B%0A%20%20%20%20resize.title%3D'Open%20the%20version%20shown%20above%20in%20the%20resizer%2C%20to%20crop%20it'%3B%0A%20%20%20%20resize.onclick%3Dfunction()%7B%0A%20%20%20%20%20%20window.open(TOOL%2B'%3Fid%3D'%2Bc.id%2B(showing%3D%3D%3D'plain'%3F'%26plain%3D1'%3A'')%2C'_blank'%2C'noopener')%3B%0A%20%20%20%20%7D%3B%0A%0A%20%20%20%20row.appendChild(full)%3Brow.appendChild(plain)%3Brow.appendChild(copy)%3Brow.appendChild(resize)%3B%0A%0A%20%20%20%20%2F*%20Neutral%2C%20not%20a%20faded%20primary%3A%20the%20strongest%20colour%20on%20a%20card%20should%0A%20%20%20%20%20%20%20never%20belong%20to%20a%20control%20that%20does%20nothing.%20Copy%20ID%20keeps%20working%0A%20%20%20%20%20%20%20because%20the%20ID%20exists%20whether%20or%20not%20the%20export%20does.%20*%2F%0A%20%20%20%20function%20disable(btn)%7B%0A%20%20%20%20%20%20btn.style.cssText%3DBTN_OFF%3B%0A%20%20%20%20%20%20btn.title%3D'Not%20available%20yet%20-%20this%20chart%20needs%20republishing'%3B%0A%20%20%20%20%20%20btn.onclick%3Dfunction()%7B%7D%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20%2F*%20Both%20presets%20are%20written%20by%20the%20same%20publish%2C%20so%20a%20missing%20website.png%0A%20%20%20%20%20%20%20means%20website-plain.png%20is%20missing%20too%20-%20and%20the%20resizer%20has%20nothing%20to%0A%20%20%20%20%20%20%20load%20either.%20*%2F%0A%20%20%20%20%2F*%20Once%20the%20first%20load%20succeeds%20the%20verdict%20is%20settled%2C%20so%20a%20later%20failure%0A%20%20%20%20%20%20%20is%20a%20failed%20swap%2C%20not%20a%20missing%20export%3A%20fall%20back%20to%20the%20full%20image%0A%20%20%20%20%20%20%20rather%20than%20re-running%20the%20missing-export%20path%20and%20double-counting.%20*%2F%0A%20%20%20%20var%20settled%3Dfalse%3B%0A%20%20%20%20im.onload%3Dfunction()%7Bsettled%3Dtrue%3B%7D%3B%0A%20%20%20%20im.onerror%3Dfunction()%7B%0A%20%20%20%20%20%20if(settled)%7B%0A%20%20%20%20%20%20%20%20showing%3D'full'%3B%0A%20%20%20%20%20%20%20%20toggle.textContent%3D'Show%20plain%20version'%3B%0A%20%20%20%20%20%20%20%20im.src%3DCDN%2Bc.id%2B'%2Fwebsite.png'%3B%0A%20%20%20%20%20%20%20%20return%3B%0A%20%20%20%20%20%20%7D%0A%20%20%20%20%20%20toggle.style.display%3D'none'%3B%0A%20%20%20%20%20%20im.style.display%3D'none'%3B%0A%20%20%20%20%20%20disable(full)%3Bdisable(plain)%3Bdisable(resize)%3B%0A%20%20%20%20%20%20%2F*%20The%20summary%20above%20already%20says%20a%20chart%20is%20missing%20its%20image%2C%20so%20this%0A%20%20%20%20%20%20%20%20%20line%20is%20only%20the%20action.%20The%20arrow%20sits%20inside%20the%20link%20so%20it%20is%20part%0A%20%20%20%20%20%20%20%20%20of%20what%20gets%20underlined%2C%20and%20warns%20that%20the%20click%20leaves%20the%20page.%20*%2F%0A%20%20%20%20%20%20var%20a%3Del('a'%2Cnull%2C'Republish%20this%20chart')%3B%0A%20%20%20%20%20%20a.href%3D'https%3A%2F%2Fapp.datawrapper.de%2Fchart%2F'%2Bc.id%2B'%2Fpublish'%3B%0A%20%20%20%20%20%20a.target%3D'_blank'%3Ba.rel%3D'noopener'%3B%0A%20%20%20%20%20%20a.style.cssText%3D'color%3A%23856404%3Bfont-weight%3A700'%3B%0A%20%20%20%20%20%20a.insertAdjacentHTML('beforeend'%2C'%3Csvg%20width%3D%2211%22%20height%3D%2211%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%222.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20aria-hidden%3D%22true%22%20style%3D%22display%3Ainline-block%3Bvertical-align%3A-1px%3Bmargin-left%3A4px%22%3E%3Cpath%20d%3D%22M18%2013v6a2%202%200%200%201-2%202H5a2%202%200%200%201-2-2V8a2%202%200%200%201%202-2h6%22%2F%3E%3Cpolyline%20points%3D%2215%203%2021%203%2021%209%22%2F%3E%3Cline%20x1%3D%2210%22%20y1%3D%2214%22%20x2%3D%2221%22%20y2%3D%223%22%2F%3E%3C%2Fsvg%3E')%3B%0A%20%20%20%20%20%20note.appendChild(a)%3B%0A%20%20%20%20%20%20note.appendChild(document.createTextNode('%20to%20generate%20its%2016%3A9%20image.'))%3B%0A%20%20%20%20%20%20note.style.display%3D'block'%3B%0A%20%20%20%20%20%20countMissing()%3B%0A%20%20%20%20%7D%3B%0A%0A%20%20%20%20item.appendChild(im)%3Bitem.appendChild(toggle)%3Bitem.appendChild(row)%3Bitem.appendChild(note)%3B%0A%20%20%20%20p.appendChild(item)%3B%0A%20%20%20%20if(i%3Ccharts.length-1)%7B%0A%20%20%20%20%20%20p.appendChild(el('hr'%2C'border%3A0%3Bborder-top%3A1px%20solid%20'%2BRULE%2B'%3Bmargin%3A20px%200'))%3B%0A%20%20%20%20%7D%0A%20%20%7D)%3B%0A%0A%20%20%2F*%20Escape%20closes%20it%2C%20the%20way%20every%20other%20overlay%20does.%20*%2F%0A%20%20function%20onKey(e)%7B%0A%20%20%20%20if(e.key%3D%3D%3D'Escape')%7Bp.remove()%3Bdocument.removeEventListener('keydown'%2ConKey)%3B%7D%0A%20%20%7D%0A%20%20document.addEventListener('keydown'%2ConKey)%3B%0A%0A%20%20document.body.appendChild(p)%3B%0A%7D)()
+
+READABLE SOURCE
+---------------
+This is the same program, unencoded. If you edit it, rebuild the line above
+so the two stay in step - in a browser console:
+
+  copy('javascript:' + encodeURIComponent(yourEditedSource))
+
+(function(){
+  /* Where the chart resizer lives. Change this one line when it moves off
+     localhost onto its cato.org subdomain. */
+  var TOOL='http://127.0.0.1:5500/v2-bookmarklet.html';
+
+  var CDN='https://datawrapper.dwcdn.net/';
+  var old=document.getElementById('dw-chart-panel');
+  if(old){old.remove();}
+
+  var seen={},charts=[];
+  function add(id,title){
+    if(!id||seen[id])return;
+    seen[id]=1;
+    charts.push({id:id,title:(title||'Untitled chart').trim()});
+  }
+  [].forEach.call(document.querySelectorAll('.embed-print-fallback__image'),function(img){
+    var m=img.src.match(/datawrapper\.dwcdn\.net\/([A-Za-z0-9]{5})\//);
+    if(m)add(m[1],img.alt);
+  });
+  [].forEach.call(document.querySelectorAll('iframe[src*="datawrapper.dwcdn.net"]'),function(f){
+    var m=f.src.match(/datawrapper\.dwcdn\.net\/([A-Za-z0-9]{5})\//);
+    if(m)add(m[1],f.title);
+  });
+  // Web component embeds expose the chart ID in their loader script URL.
+  [].forEach.call(document.querySelectorAll('script[src*="datawrapper.dwcdn.net"]'),function(s){
+    var m=s.src.match(/datawrapper\.dwcdn\.net\/([A-Za-z0-9]{5})\/embed\.js(?:[?#]|$)/);
+    if(m)add(m[1],s.title);
+  });
+  if(!charts.length){alert('No Datawrapper charts found on this page.');return;}
+
+  var STROKE='#d4d4d8';
+  var RULE='#e4e4e7';
+  /* One weight for all four: there is no way to know whether someone came
+     for the full image, the plain one, the ID or the resizer, so promoting
+     any of them just guesses wrong three times out of four. */
+  var BTN='cursor:pointer;border:1px solid '+STROKE+';background:#fff;color:#18181b;border-radius:4px;padding:7px 11px;font-size:13px;font-weight:600;font-family:inherit;line-height:1.2';
+  var BTN_OFF='cursor:not-allowed;border:1px solid '+RULE+';background:#fff;color:#a1a1aa;border-radius:4px;padding:7px 11px;font-size:13px;font-weight:600;font-family:inherit;line-height:1.2';
+
+  function el(tag,css,text){
+    var n=document.createElement(tag);
+    if(css)n.style.cssText=css;
+    if(text!=null)n.textContent=text;
+    return n;
+  }
+
+  var p=el('div','position:fixed;top:0;right:20px;z-index:2147483647;width:380px;max-height:100vh;overflow-y:auto;box-sizing:border-box;background:#fff;color:#18181b;border:1px solid '+STROKE+';border-top:0;border-radius:0 0 8px 8px;padding:0 20px 20px;font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;font-size:14px;box-shadow:0 4px 16px rgba(0,0,0,.2)');
+  p.id='dw-chart-panel';
+
+  /* Sticky so the close button stays reachable on pages with many charts. */
+  var h=el('div','position:sticky;top:0;background:#fff;padding:20px 0 12px;display:flex;align-items:center;justify-content:space-between');
+  h.appendChild(el('div','font-size:16px;font-weight:700',charts.length+' chart'+(charts.length===1?'':'s')+' on this page'));
+  var x=el('button','border:0;background:transparent;color:#71717a;font-size:22px;line-height:1;cursor:pointer;padding:0','×');
+  x.setAttribute('aria-label','Close');
+  x.onclick=function(){p.remove();};
+  h.appendChild(x);
+  p.appendChild(h);
+
+  p.appendChild(el('div','font-size:12px;color:#71717a;margin-bottom:14px','Images download as soon as you click.'));
+
+  /* Said once here rather than repeated on every affected card. Counts up as
+     the previews fail, so it reflects the whole page in one sentence. */
+  var missing=0;
+  var summary=el('div','display:none;font-size:12px;line-height:1.5;color:#856404;background:#fefce8;border-left:4px solid #facc15;padding:9px 11px;margin-bottom:16px');
+  p.appendChild(summary);
+  function countMissing(){
+    missing++;
+    summary.textContent=(charts.length===1
+      ? 'This chart does not have a 16:9 image yet.'
+      : missing+' of '+charts.length+' charts '+(missing===1?'does':'do')+' not have a 16:9 image yet.')
+      +' Republish in Datawrapper using the '+(missing===1?'link':'links')+' below to generate images.';
+    summary.style.display='block';
+  }
+
+  charts.forEach(function(c,i){
+    var item=el('div');
+    /* Figure number and title share a line. On its own the number claimed a
+       full row for two words and left the rest of it empty, which is a lot of
+       dead space in a 380px panel. */
+    var head=el('div','line-height:1.4;margin-bottom:10px');
+    head.appendChild(el('strong',null,'Figure '+(i+1)+': '));
+    head.appendChild(document.createTextNode(c.title));
+    item.appendChild(head);
+
+    /* The preview IS website.png, so it doubles as the availability check:
+       renders means the export exists, fails means the chart predates the
+       export presets. It is an <img>, so it uses the same img-src the page
+       already grants the print fallback rather than depending on connect-src. */
+    var im=el('img','width:100%;height:auto;display:block;margin:0 0 10px;border:1px solid '+RULE);
+    im.src=CDN+c.id+'/website.png';
+    im.alt='';
+
+    /* The plain export drops the title, notes and sources, which is hard to
+       picture from a button label. Swapping the preview answers it for one
+       request, and leaves downloading alone. */
+    var showing='full';
+    var toggle=el('button','display:block;margin:0 0 10px;border:0;background:none;padding:0;font:inherit;font-size:12px;color:#3043b4;text-decoration:underline;text-underline-offset:2px;cursor:pointer','Show plain version');
+    toggle.onclick=function(){
+      showing=showing==='full'?'plain':'full';
+      toggle.textContent=showing==='full'?'Show plain version':'Show full version';
+      im.src=CDN+c.id+'/'+(showing==='full'?'website.png':'website-plain.png');
+    };
+
+    var note=el('div','display:none;font-size:12px;line-height:1.5;color:#856404;margin-top:8px');
+
+    /* A download attribute is ignored on a cross-origin href, so the bytes
+       have to be local before anything can be saved. Two ways to get them,
+       tried in order:
+
+         1. fetch - returns the published file byte for byte, exactly as
+            Datawrapper optimised it. Needs connect-src to allow dwcdn, which
+            cannot be verified from outside cato.org.
+         2. <img> into a canvas - only needs img-src, which the page already
+            grants dwcdn for its print fallback, so this works wherever the
+            preview above works. The catch is that re-encoding inflates the
+            PNG by about a third (160KB becomes 218KB on a typical chart),
+            because the canvas encoder does not optimise the way Datawrapper
+            does. Same pixels, bigger file.
+
+       Either way the download keeps the chart ID in its filename, which
+       right-click and Save Image As would not - that names every chart
+       website.png. */
+    function saveImage(file,suffix,btn){
+      var url=CDN+c.id+'/'+file;
+      var label=btn.textContent;
+      btn.textContent='Saving...';
+
+      function give(blob){
+        var href=URL.createObjectURL(blob);
+        var a=document.createElement('a');
+        a.href=href;
+        a.download=c.id+suffix+'.png';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function(){URL.revokeObjectURL(href);},10000);
+        btn.textContent='Saved';
+        setTimeout(function(){btn.textContent=label;},1400);
+      }
+
+      fetch(url).then(function(r){
+        if(!r.ok)throw 0;
+        return r.blob();
+      }).then(give).catch(function(){
+        var im2=new Image();
+        im2.crossOrigin='anonymous';
+        im2.onload=function(){
+          var cv=document.createElement('canvas');
+          cv.width=im2.naturalWidth;
+          cv.height=im2.naturalHeight;
+          cv.getContext('2d').drawImage(im2,0,0);
+          cv.toBlob(give,'image/png');
+        };
+        /* Last resort: the file is still reachable, so hand it over the old
+           way rather than failing silently. */
+        im2.onerror=function(){
+          btn.textContent=label;
+          window.open(url,'_blank','noopener');
+        };
+        im2.src=url;
+      });
+    }
+
+    var row=el('div','display:flex;align-items:center;flex-wrap:wrap;gap:6px');
+
+    var full=el('button',BTN,'16:9 image');
+    full.title='Download website.png';
+    full.onclick=function(){saveImage('website.png','-16x9',full);};
+
+    var plain=el('button',BTN,'16:9 plain');
+    plain.title='Download website-plain.png, without title, notes or sources';
+    plain.onclick=function(){saveImage('website-plain.png','-16x9-plain',plain);};
+
+    var copy=el('button',BTN,'Copy ID');
+    copy.title='Copy '+c.id+' to the clipboard';
+    copy.onclick=function(){
+      navigator.clipboard.writeText(c.id).then(function(){
+        copy.textContent='Copied '+c.id;
+        setTimeout(function(){copy.textContent='Copy ID';},1400);
+      });
+    };
+
+    /* Built at click time, not bound up front, so it follows the preview:
+       whatever version is on screen is the one the resizer opens. The tool
+       reads ?plain=1 and opens with the plain version already loaded. */
+    var resize=el('button',BTN,'Open chart resizer');
+    resize.title='Open the version shown above in the resizer, to crop it';
+    resize.onclick=function(){
+      window.open(TOOL+'?id='+c.id+(showing==='plain'?'&plain=1':''),'_blank','noopener');
+    };
+
+    row.appendChild(full);row.appendChild(plain);row.appendChild(copy);row.appendChild(resize);
+
+    /* Neutral, not a faded primary: the strongest colour on a card should
+       never belong to a control that does nothing. Copy ID keeps working
+       because the ID exists whether or not the export does. */
+    function disable(btn){
+      btn.style.cssText=BTN_OFF;
+      btn.title='Not available yet - this chart needs republishing';
+      btn.onclick=function(){};
+    }
+
+    /* Both presets are written by the same publish, so a missing website.png
+       means website-plain.png is missing too - and the resizer has nothing to
+       load either. */
+    /* Once the first load succeeds the verdict is settled, so a later failure
+       is a failed swap, not a missing export: fall back to the full image
+       rather than re-running the missing-export path and double-counting. */
+    var settled=false;
+    im.onload=function(){settled=true;};
+    im.onerror=function(){
+      if(settled){
+        showing='full';
+        toggle.textContent='Show plain version';
+        im.src=CDN+c.id+'/website.png';
+        return;
+      }
+      toggle.style.display='none';
+      im.style.display='none';
+      disable(full);disable(plain);disable(resize);
+      /* The summary above already says a chart is missing its image, so this
+         line is only the action. The arrow sits inside the link so it is part
+         of what gets underlined, and warns that the click leaves the page. */
+      var a=el('a',null,'Republish this chart');
+      a.href='https://app.datawrapper.de/chart/'+c.id+'/publish';
+      a.target='_blank';a.rel='noopener';
+      a.style.cssText='color:#856404;font-weight:700';
+      a.insertAdjacentHTML('beforeend','<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:inline-block;vertical-align:-1px;margin-left:4px"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>');
+      note.appendChild(a);
+      note.appendChild(document.createTextNode(' to generate its 16:9 image.'));
+      note.style.display='block';
+      countMissing();
+    };
+
+    item.appendChild(im);item.appendChild(toggle);item.appendChild(row);item.appendChild(note);
+    p.appendChild(item);
+    if(i<charts.length-1){
+      p.appendChild(el('hr','border:0;border-top:1px solid '+RULE+';margin:20px 0'));
+    }
+  });
+
+  /* Escape closes it, the way every other overlay does. */
+  function onKey(e){
+    if(e.key==='Escape'){p.remove();document.removeEventListener('keydown',onKey);}
+  }
+  document.addEventListener('keydown',onKey);
+
+  document.body.appendChild(p);
+})()
