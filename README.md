@@ -1,4 +1,4 @@
-# Cato website chart resizer
+# Datawrapper List Image Exporter
 
 Load a published Datawrapper chart, crop it or remove gaps, and export a 1920 × 1080 PNG. The chart-finder bookmarklet finds charts on a Cato article and opens them in the resizer.
 
