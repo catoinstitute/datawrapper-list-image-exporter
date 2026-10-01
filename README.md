@@ -13,14 +13,6 @@ index.html                       Main page, styles, and JavaScript
 
 The local `archive/` folder holds earlier prototypes and is ignored by Git. Older commits may still contain those files.
 
-## GitHub Pages deployment
-
-1. In the repository's **Settings → Pages → Build and deployment**, select **GitHub Actions** as the source.
-2. Commit and push these changes to `main`. The **Deploy GitHub Pages** workflow publishes the site on each push to `main`; it can also be run manually from the Actions tab.
-3. Open <https://catoinstitute.github.io/datawrapper-list-image-exporter/> after the deployment succeeds.
-
-The workflow uploads only `index.html`, so repository documentation and local archives are not included in the deployed site. Reinstall the chart-finder bookmarklet from the deployed page so it opens the public address.
-
 ## Local preview
 
 From the repository root, run:
